@@ -32,7 +32,7 @@ Open the `interviewsim-settings` environment group in Render. Add these values t
 | `JUDGE0_BASE_URL` | `https://ce.judge0.com` for the initial demo; omit the trailing slash. |
 | `APP_PUBLIC_URL` | The full deployed web-service URL, including `https://`. |
 
-`JUDGE0_LANGUAGE_ID=71`, the workflow slug, session length, and internal callback secret are already set in the Blueprint. Judge0 CE can be configured to require an API key. If the endpoint rejects a grading request, add a compatible Judge0 service’s URL and credentials in this same environment group. The code sends both `X-Auth-Token` and RapidAPI headers when a key is supplied.
+`JUDGE0_LANGUAGE_ID=71`, the workflow slug, session length, and internal callback secret are already set in the Blueprint. Try the Judge0 CE endpoint with its key fields blank first; authentication depends on that instance’s configuration. If it returns 401 or 429, pause and ask for help—do not subscribe to a paid API plan or add billing details. The code supports Judge0 auth headers if a no-cost endpoint requires them.
 
 Next, open the **web service’s** Environment page and add:
 
