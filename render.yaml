@@ -1,0 +1,49 @@
+envVarGroups:
+  - name: interviewsim-settings
+    envVars:
+      - key: OPENAI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: OPENAI_MODEL
+        value: gemini-3.8-flash
+      - key: JUDGE0_LANGUAGE_ID
+        value: "71"
+      - key: RENDER_WORKFLOW_SLUG
+        value: interviewsim
+      - key: SESSION_MINUTES
+        value: "45"
+      - key: INTERNAL_CALLBACK_SECRET
+        generateValue: true
+
+services:
+  - type: web
+    name: interviewsim-web
+    runtime: python
+    plan: starter
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn interviewsim.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: interviewsim-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: interviewsim-db
+          property: connectionString
+
+  - type: workflow
+    name: interviewsim-grading
+    runtime: python
+    region: singapore
+    repo: https://github.com/JatinGargz/innovertex-interviewsim
+    slug: interviewsim
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m interviewsim.workflow
+    envVars:
+      - fromGroup: interviewsim-settings
+
+databases:
+  - name: interviewsim-db
+    databaseName: interviewsim
+    user: interviewsim
+    plan: free
+    region: singapore
