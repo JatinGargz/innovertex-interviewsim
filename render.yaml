@@ -31,11 +31,10 @@ services:
           property: connectionString
 
   - type: workflow
-    name: interviewsim-grading
+    name: interviewsim
     runtime: python
     region: singapore
     repo: https://github.com/JatinGargz/innovertex-interviewsim
-    slug: interviewsim
     buildCommand: pip install -r requirements.txt
     startCommand: python -m interviewsim.workflow
     envVars:
