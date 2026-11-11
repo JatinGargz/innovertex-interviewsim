@@ -18,7 +18,7 @@ The app currently accepts this normalized event at `POST /api/nonilion/webhook`:
 }
 ```
 
-The route returns a `NonilionReply` object containing the response text and session state. The intended commands are `start`, `status`, ordinary clarification questions, and a `file_submission` event containing `source_code`.
+The route returns a `NonilionReply` object containing the response text and session state. The intended commands are `start` (default rate-limiter round), `start cache`, `start retry`, `start payments`, `status`, ordinary clarification questions, and a `file_submission` event containing `source_code`.
 
 ## What to map when the guide arrives
 

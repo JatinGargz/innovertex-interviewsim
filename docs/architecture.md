@@ -9,15 +9,15 @@ sequenceDiagram
     participant J0 as Judge0 sandbox
     participant LLM as OpenAI-compatible model
 
-    Candidate->>Web: Start 45-minute round
-    Web->>DB: Save session + server deadline
-    Web-->>Candidate: Challenge and starter file
+    Candidate->>Web: Choose and start a 45-minute round
+    Web->>DB: Save challenge ID + server deadline
+    Web-->>Candidate: Selected challenge and starter file
     Candidate->>Web: Clarification question
     Web->>LLM: Interviewer context + conversation
     LLM-->>Web: Concise in-character response
     Web-->>Candidate: Interviewer reply
     Candidate->>Web: Submit source
-    Web->>WF: Start grade_submission task
+    Web->>WF: Start grade_submission with challenge ID
     par Isolated checks
         WF->>J0: Candidate source + hidden evaluator
         J0-->>WF: Case results

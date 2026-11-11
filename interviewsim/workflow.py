@@ -13,16 +13,16 @@ app = Workflows()
 
 
 @app.task(name="sandbox_candidate", retry=Retry(max_retries=2, wait_duration_ms=1000), timeout_seconds=120)
-async def sandbox_candidate(ctx: TaskContext, source_code: str) -> dict:
+async def sandbox_candidate(ctx: TaskContext, source_code: str, challenge_id: str) -> dict:
     """Run the submitted source through Judge0. This Render task never executes it itself."""
-    return await grade_source(source_code)
+    return await grade_source(source_code, challenge_id)
 
 
 @app.task(name="review_interview", timeout_seconds=90)
-async def review_interview_task(ctx: TaskContext, source_code: str, transcript: list[dict]) -> dict:
+async def review_interview_task(ctx: TaskContext, source_code: str, transcript: list[dict], challenge_id: str) -> dict:
     from interviewsim.grading import review_interview
 
-    return await review_interview(source_code, transcript)
+    return await review_interview(source_code, transcript, challenge_id)
 
 
 async def _post_scorecard(session_id: str, scorecard: dict) -> None:
@@ -41,11 +41,11 @@ async def _post_scorecard(session_id: str, scorecard: dict) -> None:
 
 
 @app.task(name="grade_submission", timeout_seconds=240)
-async def grade_submission(ctx: TaskContext, session_id: str, source_code: str, transcript: list[dict]) -> dict:
+async def grade_submission(ctx: TaskContext, session_id: str, challenge_id: str, source_code: str, transcript: list[dict]) -> dict:
     """Parallelize sandbox execution and transcript/code review, then deliver one report."""
     technical, interview_review = await asyncio.gather(
-        ctx.run(sandbox_candidate, source_code),
-        ctx.run(review_interview_task, source_code, transcript),
+        ctx.run(sandbox_candidate, source_code, challenge_id),
+        ctx.run(review_interview_task, source_code, transcript, challenge_id),
         return_exceptions=True,
     )
     if isinstance(technical, Exception):
@@ -59,7 +59,7 @@ async def grade_submission(ctx: TaskContext, session_id: str, source_code: str, 
         }
     if isinstance(interview_review, Exception):
         interview_review = {"available": False, "note": f"Interview review failed ({type(interview_review).__name__})."}
-    scorecard = assemble_scorecard(session_id, technical, interview_review, transcript)
+    scorecard = assemble_scorecard(session_id, technical, interview_review, transcript, challenge_id)
     await _post_scorecard(session_id, scorecard)
     return scorecard
 

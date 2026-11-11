@@ -14,16 +14,15 @@ from pydantic import BaseModel, Field
 from render import RenderAsync
 
 from interviewsim.challenge import (
-    CHALLENGE_BRIEF,
-    CHALLENGE_ID,
-    CHALLENGE_MINUTES,
-    CHALLENGE_ROLE,
-    CHALLENGE_TITLE,
-    STARTER_CODE,
+    CHALLENGES,
+    DEFAULT_CHALLENGE_ID,
+    challenge_for_command,
+    get_challenge,
+    list_challenges,
 )
 from interviewsim.config import settings
 from interviewsim.nonilion import CanonicalNonilionEvent, NonilionReply
-from interviewsim.providers import INTERVIEWER_SYSTEM, chat_completion, fallback_interviewer_reply
+from interviewsim.providers import interviewer_system, chat_completion, fallback_interviewer_reply
 from interviewsim.reports import create_scorecard_pdf
 from interviewsim.storage import append_message, create_session, get_active_session, get_session, init_db, update_session
 
@@ -43,6 +42,7 @@ class StartSessionRequest(BaseModel):
     candidate_name: str = Field(default="Candidate", max_length=120)
     room_id: str = Field(default="browser-demo", max_length=200)
     user_id: str = Field(default="local-candidate", max_length=200)
+    challenge_id: str = Field(default=DEFAULT_CHALLENGE_ID, max_length=100)
 
 
 class MessageRequest(BaseModel):
@@ -86,20 +86,18 @@ def _public_session(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _public_challenge() -> dict[str, Any]:
+def _public_challenge(challenge_id: str = DEFAULT_CHALLENGE_ID) -> dict[str, Any]:
+    challenge = get_challenge(challenge_id)
     return {
-        "id": CHALLENGE_ID,
-        "title": CHALLENGE_TITLE,
-        "role": CHALLENGE_ROLE,
-        "duration_minutes": settings.session_minutes or CHALLENGE_MINUTES,
-        "brief": CHALLENGE_BRIEF,
-        "starter_code": STARTER_CODE,
-        "rubric": {
-            "root_cause": "Find and explain the behavioral defects.",
-            "code_quality": "Keep the interface clear and maintainable.",
-            "edge_cases": "Reason about time boundaries, rejected calls, and independent users.",
-            "communication": "Explain the debugging plan and tradeoffs.",
-        },
+        "id": challenge["id"],
+        "title": challenge["title"],
+        "role": challenge["role"],
+        "category": challenge["category"],
+        "file_name": challenge["file_name"],
+        "duration_minutes": settings.session_minutes or challenge["duration_minutes"],
+        "brief": challenge["brief"],
+        "starter_code": challenge["starter_code"],
+        "rubric": challenge["rubric"],
     }
 
 
@@ -107,12 +105,13 @@ async def _answer_candidate(session: dict[str, Any], content: str) -> tuple[str,
     transcript = append_message(session, "user", content)
     remaining = _seconds_remaining(session)
     recent = transcript[-16:]
-    messages = [{"role": "system", "content": INTERVIEWER_SYSTEM}]
+    challenge = get_challenge(session["challenge_id"])
+    messages = [{"role": "system", "content": interviewer_system(challenge)}]
     messages.extend({"role": item["role"], "content": item["content"]} for item in recent)
     try:
         reply = await chat_completion(messages)
     except Exception:
-        reply = fallback_interviewer_reply(content, remaining)
+        reply = fallback_interviewer_reply(content, remaining, challenge)
     append_message(session, "assistant", reply)
     return reply, get_session(session["id"]) or session
 
@@ -132,6 +131,7 @@ async def _start_workflow(session: dict[str, Any], source_code: str) -> str:
             f"{settings.render_workflow_slug}/grade_submission",
             {
                 "session_id": session["id"],
+                "challenge_id": session["challenge_id"],
                 "source_code": source_code,
                 "transcript": session["transcript"],
             },
@@ -153,24 +153,34 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "service": "interviewsim"}
 
 
+@app.get("/api/challenges")
+async def challenges() -> list[dict[str, Any]]:
+    return list_challenges()
+
+
 @app.get("/api/challenge")
-async def challenge() -> dict[str, Any]:
-    return _public_challenge()
+async def challenge(challenge_id: str = DEFAULT_CHALLENGE_ID) -> dict[str, Any]:
+    if challenge_id not in CHALLENGES:
+        raise HTTPException(status_code=404, detail="Challenge not found.")
+    return _public_challenge(challenge_id)
 
 
 @app.post("/api/sessions")
 async def start_session(body: StartSessionRequest) -> dict[str, Any]:
+    if body.challenge_id not in CHALLENGES:
+        raise HTTPException(status_code=422, detail="Choose one of the available debugging rounds.")
+    selected = get_challenge(body.challenge_id)
     now = datetime.now(timezone.utc)
-    duration = settings.session_minutes or CHALLENGE_MINUTES
+    duration = settings.session_minutes or selected["duration_minutes"]
     session = create_session(
         room_id=body.room_id.strip() or "browser-demo",
         user_id=body.user_id.strip() or "local-candidate",
         candidate_name=body.candidate_name.strip() or "Candidate",
-        challenge_id=CHALLENGE_ID,
+        challenge_id=selected["id"],
         started_at=now,
         deadline_at=now + timedelta(minutes=duration),
     )
-    return {"challenge": _public_challenge(), "session": _public_session(session)}
+    return {"challenge": _public_challenge(selected["id"]), "session": _public_session(session)}
 
 
 @app.get("/api/sessions/{session_id}")
@@ -254,18 +264,26 @@ async def nonilion_webhook(
     if active and active["state"] == "active" and _seconds_remaining(active) <= 0:
         update_session(active["id"], state="expired")
         active = None
-    if message.lower() in {"start", "/start", "start interview"}:
+    normalized_message = message.lower().strip()
+    is_start = normalized_message == "start" or normalized_message == "/start" or normalized_message == "start interview" or normalized_message.startswith("start ") or normalized_message.startswith("/start ")
+    if is_start:
         if active:
             return NonilionReply(event_id=body.event_id, text=f"You already have an active round. Session {active['id'][:8]} has {max(0, _seconds_remaining(active) // 60)} minutes left.", session_id=active["id"], state=active["state"])
+        requested = "" if normalized_message in {"start interview", "/start interview"} else normalized_message.removeprefix("/start").removeprefix("start").strip()
+        selected = challenge_for_command(requested) if requested else get_challenge(DEFAULT_CHALLENGE_ID)
+        if selected is None:
+            choices = ", ".join(item["command"] for item in list_challenges())
+            return NonilionReply(event_id=body.event_id, text=f"Unknown round. Choose one: {choices}.")
         now = datetime.now(timezone.utc)
-        duration = settings.session_minutes or CHALLENGE_MINUTES
-        active = create_session(body.room_id, body.user_id, body.user_name, CHALLENGE_ID, now, now + timedelta(minutes=duration))
-        text = f"{CHALLENGE_TITLE}\n\n{CHALLENGE_BRIEF}\n\nStarter code:\n```python\n{STARTER_CODE}```\n\nYour {duration}-minute timer starts now. Ask a question or send a file_submission event with your complete source code."
+        duration = settings.session_minutes or selected["duration_minutes"]
+        active = create_session(body.room_id, body.user_id, body.user_name, selected["id"], now, now + timedelta(minutes=duration))
+        text = f"{selected['title']} · {selected['category']}\n\n{selected['brief']}\n\nStarter code:\n```python\n{selected['starter_code']}```\n\nYour {duration}-minute timer starts now. Ask a question or send a file_submission event with your complete source code."
         append_message(active, "assistant", text)
         return NonilionReply(event_id=body.event_id, text=text, session_id=active["id"], state="active")
 
     if not active:
-        return NonilionReply(event_id=body.event_id, text="Send `start` to begin a timed debugging interview.")
+        choices = ", ".join(item["command"] for item in list_challenges())
+        return NonilionReply(event_id=body.event_id, text=f"Send `start` or `start <round>` to begin. Available rounds: {choices}.")
 
     if body.event_type == "file_submission" or message.lower() in {"submit", "/submit"}:
         source = body.source_code

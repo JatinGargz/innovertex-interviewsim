@@ -2,7 +2,7 @@
 
 **GitCoders · InnoVertex 4.0 · Best AI Agent on Nonilion**
 
-InterviewSim is a timed debugging interview agent concept for students preparing for machine-coding rounds. It gives a candidate a small, deliberately broken service, answers clarification questions as a senior engineer, accepts a code submission, and returns a private scorecard. The first round is a Python sliding-window rate limiter.
+InterviewSim is a timed debugging interview agent concept for students preparing for machine-coding rounds. Candidates choose one of four deliberately broken Python backend challenges, ask an AI senior engineer clarification questions, submit a fix, and receive a private scorecard.
 
 **Pitch deck:** [`submission/InterviewSim-InnoVertex-7slides.pptx`](submission/InterviewSim-InnoVertex-7slides.pptx) · **Deployment guide:** [`submission/START-HERE.md`](submission/START-HERE.md)
 
@@ -11,7 +11,8 @@ The project uses Render Workflows to coordinate grading. Candidate code is sent 
 ## Implemented in the MVP code
 
 - A 45-minute session with a server-side deadline and a visible countdown.
-- A challenge brief and starter file for the rate-limiter debugging round.
+- Four selectable debugging rounds: a sliding-window rate limiter, TTL/LRU cache, retry policy, and idempotent payment ledger.
+- A challenge-specific hidden test suite for every round, executed in Judge0 with network access disabled.
 - An interviewer chat backed by an OpenAI-compatible chat-completions endpoint, with a useful local fallback.
 - Submission handoff to a Render Workflow.
 - Isolated code execution through a configurable Judge0-compatible API.
@@ -52,6 +53,8 @@ The Render Workflow is a required part of the judging path, not an optional back
 ## Nonilion adapter
 
 The app exposes `POST /api/nonilion/webhook` for the canonical event shape documented in `docs/nonilion-integration.md`. That route is a boundary for the platform adapter, not a claim that Nonilion already sends this exact JSON. The public Nonilion docs currently list the API reference as “Soon.” Confirm the current agent import process and map its verified fields and authentication rule before claiming a live Nonilion integration. The hackathon problem statement requires the final demo to run inside Nonilion.
+
+For the canonical webhook adapter, send `start` to begin the default rate-limiter round, or `start cache`, `start retry`, and `start payments` to choose another round. The browser demo has a round selector above the start button.
 
 ## Design notes
 

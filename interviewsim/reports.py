@@ -11,7 +11,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from interviewsim.challenge import CHALLENGE_TITLE
 
 
 def _plain(value: Any) -> str:
@@ -48,7 +47,7 @@ def create_scorecard_pdf(scorecard: dict[str, Any], candidate_name: str) -> byte
     overall_label = f"{overall}%" if overall is not None else "Unavailable"
     story = [
         _paragraph("InterviewSim - Scorecard", title),
-        _paragraph(CHALLENGE_TITLE, heading),
+        _paragraph(scorecard.get("challenge_title", "Debugging challenge"), heading),
         _paragraph(f"Candidate: {candidate_name} | Completed: {scorecard.get('completed_at', '-')}", small),
         _paragraph(f"Overall score: {overall_label} | Hidden cases: {technical.get('passed', 0)}/{technical.get('total', 0)}", body),
         Spacer(1, 4),

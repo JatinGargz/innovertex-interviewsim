@@ -44,17 +44,17 @@ Do not add that Render API key to the Workflow service. The `INTERNAL_CALLBACK_S
 
 ## 4. Confirm the grading path
 
-1. Open the public web URL and start a short demo session.
-2. Ask one clarification question; the staff-engineer interviewer should answer.
-3. Submit a candidate solution only after the Judge0 settings are active.
+1. Open the public web URL and choose one of the four rounds: rate limiter, expiring cache, retry policy, or duplicate-payment incident.
+2. Start a demo session and ask one clarification question; the interviewer should answer with the selected round's contract.
+3. Submit a candidate solution only after the Judge0 settings are active. Each round has its own hidden test suite.
 4. In the Render dashboard, confirm a run appears under `interviewsim/grade_submission`.
-5. Return to the app and confirm a scorecard appears and its PDF downloads.
+5. Return to the app and confirm a scorecard appears with that round's test results and its PDF downloads.
 
 If a service setting changes after deploy, trigger a redeploy for that service. Never show a secret value while screen sharing.
 
 ## 5. Finish the Nonilion import
 
-The official track requires the agent to be imported into the team’s Nonilion office and demonstrated working there. The two supplied hackathon documents do not include the Bot API payload/authentication guide; Nonilion’s public docs currently label the API reference “Soon.” The current `/api/nonilion/webhook` accepts an internal canonical shape and is **not** proof of a working Nonilion integration.
+The official track requires the agent to be imported into the team’s Nonilion office and demonstrated working there. The two supplied hackathon documents do not include the Bot API payload/authentication guide; Nonilion’s public docs currently label the API reference “Soon.” The current `/api/nonilion/webhook` accepts an internal canonical shape and is **not** proof of a working Nonilion integration. Its canonical start commands are `start`, `start cache`, `start retry`, and `start payments`.
 
 Before the final demo, ask the Nonilion track contact for the current import method, webhook URL format, signature/auth rule, and file-submission format. Then map those verified details in `interviewsim/nonilion.py` and confirm the full start → clarification → file submission → scorecard flow inside Nonilion. Do not send candidate source to an unverified webhook.
 
@@ -64,6 +64,6 @@ The Blueprint includes Render Workflows in the submission path. The event screen
 
 ## Current project status
 
-- Built: browser challenge, persistent 45-minute timer, interviewer endpoint with a local fallback, Render Workflow tasks, Judge0 adapter, report/PDF path, and this seven-slide pitch.
+- Built: four selectable browser challenges with separate hidden test suites, persistent 45-minute timer, challenge-aware interviewer, Render Workflow tasks, Judge0 adapter, report/PDF path, and this seven-slide pitch.
 - Requires account setup: a Render deploy, model key, Judge0 endpoint access, and Render API key.
 - Requires platform confirmation: actual Nonilion import/webhook mapping and a live demo inside Nonilion.
