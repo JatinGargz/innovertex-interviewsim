@@ -18,7 +18,7 @@ Use the participant’s Render account and complete the claim.
 4. Render reads `render.yaml` and creates the web service, `interviewsim` Workflow, and Postgres database. Wait for the first deploys to finish.
 5. Open the web service’s `https://…onrender.com` URL and confirm the page loads. The `/health` endpoint should return `{"status":"ok","service":"interviewsim"}`.
 
-The web service uses Render’s Starter plan. The Workflow task runs are billed by compute use. Check the workspace’s credit balance before the final demo.
+The web service and database use Render’s Free plan. The web service sleeps after 15 minutes without traffic and can take about a minute to wake. The database expires after 30 days. Render Workflow task runs are metered; use the claimed $50 credit for these runs and monitor its balance. If Render requests a payment method or shows a charge beyond your existing credit, stop before continuing.
 
 ## 3. Add the model and grader settings
 
